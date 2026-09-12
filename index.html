@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Мини-опрос</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #fdfbf2 0%, #faf4dd 60%, #f6ecc4 100%);
+      color: #3e3828;
+    }
+
+    /* ─── Счётчик посетителей сверху ─── */
+    .visitors {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 253, 247, 0.9);
+      backdrop-filter: blur(6px);
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      color: #7a7055;
+      box-shadow: 0 2px 10px rgba(120, 100, 40, 0.10);
+      white-space: nowrap;
+    }
+    .visitors strong { color: #8a6f2e; }
+
+    /* ─── Карточка ─── */
+    .card {
+      background: #fffdf7;
+      border-radius: 22px;
+      padding: 46px 40px;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 10px 36px rgba(120, 100, 40, 0.13);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.6em;
+      color: #8a6f2e;
+      margin-bottom: 34px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    /* ─── Кнопки ─── */
+    .buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      flex: 1;
+      min-width: 130px;
+      padding: 18px 26px;
+      border: none;
+      border-radius: 14px;
+      font-size: 1.1em;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      box-shadow: 0 3px 10px rgba(120, 100, 40, 0.10);
+    }
+
+    .btn-yes { background: #d4e8b0; color: #4d6a2a; }
+    .btn-yes:hover:not(:disabled) {
+      background: #c5de9a;
+      transform: translateY(-2px);
+      box-shadow: 0 7px 18px rgba(120, 100, 40, 0.20);
+    }
+
+    .btn-no { background: #f4c8b8; color: #8a4a35; }
+    .btn-no:hover:not(:disabled) {
+      background: #efb8a4;
+      transform: translateY(-2px);
+      box-shadow: 0 7px 18px rgba(120, 100, 40, 0.20);
+    }
+
+    .btn:active:not(:disabled) { transform: translateY(0); }
+
+    .btn:disabled { opacity: 0.55; cursor: default; }
+
+    /* ─── Результат ─── */
+    .result {
+      margin-top: 30px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+    .result.show { opacity: 1; transform: translateY(0); }
+
+    .result-message {
+      font-size: 1.15em;
+      margin-bottom: 22px;
+      line-height: 1.5;
+    }
+    .result-message .num {
+      font-size: 1.5em;
+      font-weight: 700;
+      color: #8a6f2e;
+    }
+
+    .bar {
+      display: flex;
+      height: 14px;
+      border-radius: 7px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      background: #eee;
+    }
+    .bar-yes {
+      background: linear-gradient(90deg, #b3d27f, #c5de9a);
+      width: 0;
+      transition: width 0.9s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .bar-no {
+      background: linear-gradient(90deg, #e8a88f, #f4c8b8);
+      width: 0;
+      transition: width 0.9s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9em;
+      color: #7a7055;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 480px) {
+      .card { padding: 32px 22px; }
+      h1 { font-size: 1.3em; margin-bottom: 26px; }
+      .btn { min-width: 100px; padding: 15px 18px; font-size: 1em; }
+      .visitors { font-size: 0.8em; padding: 7px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="visitors">
+    👥 Уже зашли: <strong id="visitors-count">…</strong>
+    <span id="visitors-word">человек</span>
+  </div>
+
+  <div class="card">
+    <h1>Пьешь кофе?</h1>
+
+    <div class="buttons" id="buttons">
+      <button class="btn btn-yes" id="btn-yes">✅ Да</button>
+      <button class="btn btn-no"  id="btn-no">❌ Нет</button>
+    </div>
+
+    <div class="result hidden" id="result">
+      <p class="result-message">
+        <span class="num" id="same-count">0</span>
+        <span id="same-word">пользователей</span>
+        <span id="same-verb">ответили</span> так же, как ты.
+      </p>
+
+      <div class="bar">
+        <div class="bar-yes" id="bar-yes"></div>
+        <div class="bar-no"  id="bar-no"></div>
+      </div>
+      <div class="stats">
+        <span>✅ Да: <strong id="yes-count">0</strong></span>
+        <span>❌ Нет: <strong id="no-count">0</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       1. НАСТРОЙКИ
+       ============================================================ */
+    // Уникальное пространство имён — чтобы счётчики не пересекались
+    // с другими сайтами на том же публичном сервисе.
+    const NAMESPACE = 'python-survey-functions-2026-xyz';
+    const API = 'https://abacus.jasoncameron.dev';
+
+    /* ============================================================
+       2. СЧЁТЧИКИ: реальный API + фолбэк на localStorage
+       ============================================================ */
+    async function apiHit(key) {
+      const r = await fetch(`${API}/hit/${NAMESPACE}/${key}`);
+      if (!r.ok) throw new Error('api');
+      return (await r.json()).value;
+    }
+    async function apiGet(key) {
+      const r = await fetch(`${API}/get/${NAMESPACE}/${key}`);
+      if (!r.ok) throw new Error('api');
+      return (await r.json()).value;
+    }
+
+    const localGet = k => parseInt(localStorage.getItem('survey_' + k) || '0', 10);
+    const localHit = k => {
+      const v = localGet(k) + 1;
+      localStorage.setItem('survey_' + k, v);
+      return v;
+    };
+
+    // Обёртки: сначала пробуем API, при сбое — localStorage.
+    async function hit(key) {
+      try { return await apiHit(key); }
+      catch { return localHit(key); }
+    }
+    async function get(key) {
+      try { return await apiGet(key); }
+      catch { return localGet(key); }
+    }
+
+    /* ============================================================
+       3. РУССКИЕ СКЛОНЕНИЯ (1 пользователь / 2 пользователя / 5 пользователей)
+       ============================================================ */
+    function pluralUsers(n) {
+      const m10 = n % 10, m100 = n % 100;
+      if (m10 === 1 && m100 !== 11) return 'пользователь';
+      if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'пользователя';
+      return 'пользователей';
+    }
+    function pluralPeople(n) {
+      const m10 = n % 10, m100 = n % 100;
+      if (m10 === 1 && m100 !== 11) return 'человек';
+      if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'человека';
+      return 'человек';
+    }
+
+    /* ============================================================
+       4. ЭЛЕМЕНТЫ
+       ============================================================ */
+    const el = {
+      visitorsCount: document.getElementById('visitors-count'),
+      visitorsWord:  document.getElementById('visitors-word'),
+      buttons:  document.getElementById('buttons'),
+      btnYes:   document.getElementById('btn-yes'),
+      btnNo:    document.getElementById('btn-no'),
+      result:   document.getElementById('result'),
+      sameCount: document.getElementById('same-count'),
+      sameWord:  document.getElementById('same-word'),
+      sameVerb:  document.getElementById('same-verb'),
+      barYes:    document.getElementById('bar-yes'),
+      barNo:     document.getElementById('bar-no'),
+      yesCount:  document.getElementById('yes-count'),
+      noCount:   document.getElementById('no-count'),
+    };
+
+    /* ============================================================
+       5. ЛОГИКА
+       ============================================================ */
+    async function init() {
+      // — Считаем визит, но только один раз на браузер —
+      let visits;
+      if (!localStorage.getItem('visit_counted')) {
+        visits = await hit('visits');
+        localStorage.setItem('visit_counted', '1');
+      } else {
+        visits = await get('visits');
+      }
+      el.visitorsCount.textContent = visits;
+      el.visitorsWord.textContent = pluralPeople(visits);
+
+      // — Если пользователь уже голосовал — сразу показываем результат —
+      const saved = localStorage.getItem('user_vote');
+      if (saved) {
+        const [yes, no] = await Promise.all([get('yes'), get('no')]);
+        showResults(saved, yes, no);
+      }
+    }
+
+    async function vote(choice) {
+      // Блокируем кнопки, чтобы нельзя было нажать дважды
+      el.btnYes.disabled = true;
+      el.btnNo.disabled = true;
+
+      // Увеличиваем счётчик выбранного ответа
+      await hit(choice);
+
+      // Забираем оба счётчика сразу (параллельно)
+      const [yes, no] = await Promise.all([get('yes'), get('no')]);
+
+      // Запоминаем выбор пользователя
+      localStorage.setItem('user_vote', choice);
+
+      // Показываем результат
+      showResults(choice, yes, no);
+    }
+
+    function showResults(choice, yes, no) {
+      // Скрываем кнопки
+      el.buttons.classList.add('hidden');
+
+      // Готовим сообщение
+      const same = choice === 'yes' ? yes : no;
+      el.sameCount.textContent = same;
+      el.sameWord.textContent  = pluralUsers(same);
+      el.sameVerb.textContent  = (same === 1) ? 'ответил' : 'ответили';
+
+      // Показываем блок результата с плавным появлением
+      el.result.classList.remove('hidden');
+      requestAnimationFrame(() => el.result.classList.add('show'));
+
+      // Проценты для полосы
+      const total  = yes + no;
+      const yesPct = total ? (yes / total * 100) : 0;
+      const noPct  = total ? (no / total * 100) : 0;
+
+      setTimeout(() => {
+        el.barYes.style.width = yesPct + '%';
+        el.barNo.style.width  = noPct  + '%';
+      }, 60);
+
+      // Цифры под полосой
+      el.yesCount.textContent = yes;
+      el.noCount.textContent  = no;
+    }
+
+    /* ============================================================
+       6. СТАРТ
+       ============================================================ */
+    el.btnYes.addEventListener('click', () => vote('yes'));
+    el.btnNo .addEventListener('click', () => vote('no'));
+    init();
+  </script>
+
+</body>
+</html>
