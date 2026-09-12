@@ -39,17 +39,50 @@
     .card {
       background: #fffdf7;
       border-radius: 22px;
-      padding: 46px 40px;
+      padding: 42px 40px 40px;
       max-width: 540px;
       width: 100%;
       box-shadow: 0 10px 36px rgba(120, 100, 40, 0.13);
       text-align: center;
     }
 
+    /* ─── Прогресс ─── */
+    .progress {
+      font-size: 0.78em;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #b0a482;
+      margin-bottom: 12px;
+    }
+
+    .track {
+      height: 5px;
+      background: #efe8d4;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+    .track-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #dcc87f, #b89b45);
+      transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    /* ─── Вопрос ─── */
+    .q-emoji {
+      display: block;
+      font-size: 2.6em;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+
     h1 {
-      font-size: 1.6em;
+      font-size: 1.5em;
       color: #8a6f2e;
-      margin-bottom: 34px;
+      margin-bottom: 30px;
       line-height: 1.35;
       font-weight: 700;
     }
@@ -94,9 +127,32 @@
 
     .btn:disabled { opacity: 0.55; cursor: default; }
 
+    /* ─── Кнопка «Дальше» ─── */
+    .btn-next {
+      display: block;
+      width: 100%;
+      margin-top: 26px;
+      padding: 15px 26px;
+      border: 2px solid #e6dcbc;
+      background: transparent;
+      color: #8a6f2e;
+      font-size: 1em;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+    .btn-next:hover {
+      background: #faf4dd;
+      border-color: #d9c37a;
+      transform: translateY(-2px);
+    }
+    .btn-next:active { transform: translateY(0); }
+
     /* ─── Результат ─── */
     .result {
-      margin-top: 30px;
+      margin-top: 4px;
       opacity: 0;
       transform: translateY(12px);
       transition: opacity 0.45s ease, transform 0.45s ease;
@@ -140,12 +196,22 @@
       color: #7a7055;
     }
 
+    /* ─── Анимация появления вопроса ─── */
+    @keyframes qEnter {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .q-enter { animation: qEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    /* ─── Служебное (идёт последним!) ─── */
     .hidden { display: none; }
 
     @media (max-width: 480px) {
-      .card { padding: 32px 22px; }
-      h1 { font-size: 1.3em; margin-bottom: 26px; }
+      .card { padding: 30px 22px 26px; }
+      h1 { font-size: 1.25em; margin-bottom: 24px; }
+      .q-emoji { font-size: 2.2em; margin-bottom: 12px; }
       .btn { min-width: 100px; padding: 15px 18px; font-size: 1em; }
+      .btn-next { margin-top: 20px; padding: 13px 18px; font-size: 0.95em; }
       .visitors { font-size: 0.8em; padding: 7px 14px; }
     }
   </style>
@@ -158,7 +224,13 @@
   </div>
 
   <div class="card">
-    <h1>Пьешь кофе?</h1>
+    <div class="progress" id="progress">Вопрос 1 из 4</div>
+    <div class="track"><div class="track-fill" id="track-fill"></div></div>
+
+    <div class="question" id="question">
+      <span class="q-emoji" id="q-emoji">☕️</span>
+      <h1 id="question-text">Пьешь кофе?</h1>
+    </div>
 
     <div class="buttons" id="buttons">
       <button class="btn btn-yes" id="btn-yes">✅ Да</button>
@@ -181,16 +253,24 @@
         <span>❌ Нет: <strong id="no-count">0</strong></span>
       </div>
     </div>
+
+    <button class="btn-next hidden" id="btn-next">Дальше →</button>
   </div>
 
   <script>
     /* ============================================================
        1. НАСТРОЙКИ
        ============================================================ */
-    // Уникальное пространство имён — чтобы счётчики не пересекались
-    // с другими сайтами на том же публичном сервисе.
     const NAMESPACE = 'python-survey-functions-2026-xyz';
     const API = 'https://abacus.jasoncameron.dev';
+
+    // Список вопросов. id — ключ в API, emoji — иконка, text — сам вопрос.
+    const QUESTIONS = [
+      { id: 'coffee', emoji: '☕️', text: 'Пьешь кофе?' },
+      { id: 'pet',    emoji: '🐾', text: 'Есть ли домашнее животное?' },
+      { id: 'sad',    emoji: '🥺', text: 'Тебе грустненько?' },
+      { id: 'casino', emoji: '🎰', text: 'Депнул/а бы дом в казик?' },
+    ];
 
     /* ============================================================
        2. СЧЁТЧИКИ: реальный API + фолбэк на localStorage
@@ -224,7 +304,7 @@
     }
 
     /* ============================================================
-       3. РУССКИЕ СКЛОНЕНИЯ (1 пользователь / 2 пользователя / 5 пользователей)
+       3. РУССКИЕ СКЛОНЕНИЯ
        ============================================================ */
     function pluralUsers(n) {
       const m10 = n % 10, m100 = n % 100;
@@ -245,10 +325,20 @@
     const el = {
       visitorsCount: document.getElementById('visitors-count'),
       visitorsWord:  document.getElementById('visitors-word'),
+
+      progress:      document.getElementById('progress'),
+      trackFill:     document.getElementById('track-fill'),
+
+      questionBlock: document.getElementById('question'),
+      qEmoji:        document.getElementById('q-emoji'),
+      qText:         document.getElementById('question-text'),
+
       buttons:  document.getElementById('buttons'),
       btnYes:   document.getElementById('btn-yes'),
       btnNo:    document.getElementById('btn-no'),
-      result:   document.getElementById('result'),
+      btnNext:  document.getElementById('btn-next'),
+
+      result:    document.getElementById('result'),
       sameCount: document.getElementById('same-count'),
       sameWord:  document.getElementById('same-word'),
       sameVerb:  document.getElementById('same-verb'),
@@ -259,7 +349,13 @@
     };
 
     /* ============================================================
-       5. ЛОГИКА
+       5. СОСТОЯНИЕ
+       ============================================================ */
+    const answers = {};   // { coffee: 'yes', pet: 'no', ... }
+    let current = 0;      // индекс текущего вопроса
+
+    /* ============================================================
+       6. ЛОГИКА
        ============================================================ */
     async function init() {
       // — Считаем визит, но только один раз на браузер —
@@ -273,30 +369,84 @@
       el.visitorsCount.textContent = visits;
       el.visitorsWord.textContent = pluralPeople(visits);
 
-      // — Если пользователь уже голосовал — сразу показываем результат —
-      const saved = localStorage.getItem('user_vote');
+      // — Восстанавливаем ранее данные ответы —
+      try {
+        Object.assign(answers, JSON.parse(localStorage.getItem('survey_answers') || '{}'));
+      } catch (e) { /* ignore */ }
+
+      // — Начинаем с первого неотвеченного вопроса —
+      const idx = QUESTIONS.findIndex(q => !answers[q.id]);
+      current = idx === -1 ? 0 : idx;
+
+      await renderQuestion();
+    }
+
+    function updateTrack() {
+      const done = QUESTIONS.filter(q => answers[q.id]).length;
+      el.trackFill.style.width = (done / QUESTIONS.length * 100) + '%';
+    }
+
+    function animateIn() {
+      [el.questionBlock, el.buttons].forEach(node => {
+        node.classList.remove('q-enter');
+        void node.offsetWidth;          // перезапуск анимации
+        node.classList.add('q-enter');
+      });
+    }
+
+    async function renderQuestion() {
+      const q = QUESTIONS[current];
+
+      el.progress.textContent = `Вопрос ${current + 1} из ${QUESTIONS.length}`;
+      el.qEmoji.textContent = q.emoji;
+      el.qText.textContent  = q.text;
+
+      updateTrack();
+
+      // — Сброс вида «до голосования» —
+      el.result.classList.remove('show');
+      el.result.classList.add('hidden');
+      el.barYes.style.width = '0';
+      el.barNo.style.width  = '0';
+      el.btnYes.disabled = false;
+      el.btnNo.disabled  = false;
+      el.buttons.classList.remove('hidden');
+      el.btnNext.classList.add('hidden');
+
+      animateIn();
+
+      // — Если на этот вопрос уже отвечали — сразу показываем результат —
+      const saved = answers[q.id];
       if (saved) {
-        const [yes, no] = await Promise.all([get('yes'), get('no')]);
+        const [yes, no] = await Promise.all([get(q.id + '_yes'), get(q.id + '_no')]);
         showResults(saved, yes, no);
+        updateNextButton();
       }
     }
 
     async function vote(choice) {
+      const q = QUESTIONS[current];
+
       // Блокируем кнопки, чтобы нельзя было нажать дважды
       el.btnYes.disabled = true;
-      el.btnNo.disabled = true;
+      el.btnNo.disabled  = true;
 
       // Увеличиваем счётчик выбранного ответа
-      await hit(choice);
+      await hit(q.id + '_' + choice);
 
       // Забираем оба счётчика сразу (параллельно)
-      const [yes, no] = await Promise.all([get('yes'), get('no')]);
+      const [yes, no] = await Promise.all([get(q.id + '_yes'), get(q.id + '_no')]);
 
       // Запоминаем выбор пользователя
-      localStorage.setItem('user_vote', choice);
+      answers[q.id] = choice;
+      try {
+        localStorage.setItem('survey_answers', JSON.stringify(answers));
+      } catch (e) { /* ignore */ }
 
       // Показываем результат
       showResults(choice, yes, no);
+      updateTrack();
+      updateNextButton();
     }
 
     function showResults(choice, yes, no) {
@@ -309,30 +459,43 @@
       el.sameWord.textContent  = pluralUsers(same);
       el.sameVerb.textContent  = (same === 1) ? 'ответил' : 'ответили';
 
-      // Показываем блок результата с плавным появлением
-      el.result.classList.remove('hidden');
-      requestAnimationFrame(() => el.result.classList.add('show'));
+      // Цифры под полосой
+      el.yesCount.textContent = yes;
+      el.noCount.textContent  = no;
 
       // Проценты для полосы
       const total  = yes + no;
       const yesPct = total ? (yes / total * 100) : 0;
-      const noPct  = total ? (no / total * 100) : 0;
+      const noPct  = total ? (no  / total * 100) : 0;
 
-      setTimeout(() => {
-        el.barYes.style.width = yesPct + '%';
-        el.barNo.style.width  = noPct  + '%';
-      }, 60);
+      // Показываем блок результата с плавным появлением
+      el.result.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        el.result.classList.add('show');
+        setTimeout(() => {
+          el.barYes.style.width = yesPct + '%';
+          el.barNo.style.width  = noPct  + '%';
+        }, 60);
+      });
+    }
 
-      // Цифры под полосой
-      el.yesCount.textContent = yes;
-      el.noCount.textContent  = no;
+    function updateNextButton() {
+      const isLast = current === QUESTIONS.length - 1;
+      el.btnNext.textContent = isLast ? 'В начало ↺' : 'Дальше →';
+      el.btnNext.classList.remove('hidden');
     }
 
     /* ============================================================
-       6. СТАРТ
+       7. СОБЫТИЯ И СТАРТ
        ============================================================ */
     el.btnYes.addEventListener('click', () => vote('yes'));
     el.btnNo .addEventListener('click', () => vote('no'));
+
+    el.btnNext.addEventListener('click', () => {
+      current = (current + 1) % QUESTIONS.length;
+      renderQuestion();
+    });
+
     init();
   </script>
 
